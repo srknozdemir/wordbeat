@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>Word Metronome — reading pace trainer</title>
+<meta name="description" content="A metronome for reading. One word at a time, at a pace you choose.">
+<meta name="theme-color" content="#F2EEE1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F2EEE1;
+  --sheet:#FAF7EE;
+  --ink:#0C0C0B;
+  --soft:#6C6656;
+  --line:#DCD5C1;
+  --accent:#17458F;
+  --accent-soft:#E2E8F4;
+  --shadow:0 1px 0 rgba(12,12,11,.06);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#111110; --sheet:#1A1A18; --ink:#F2EEE1; --soft:#9A937F;
+    --line:#2E2E29; --accent:#93B4EC; --accent-soft:#23304A;
+    --shadow:none; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#111110; --sheet:#1A1A18; --ink:#F2EEE1; --soft:#9A937F;
+  --line:#2E2E29; --accent:#93B4EC; --accent-soft:#23304A;
+  --shadow:none; color-scheme:dark;
+}
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  margin:0;background:var(--paper);color:var(--ink);
+  font-family:'Figtree','Segoe UI',system-ui,-apple-system,sans-serif;
+  font-size:16px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  transition:background .35s ease,color .35s ease;
+  overflow-x:hidden;
+}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+
+/* ---------- shell ---------- */
+.wrap{max-width:660px;margin:0 auto;padding:28px 20px 56px;
+  padding-top:max(28px,env(safe-area-inset-top));
+  padding-bottom:max(56px,env(safe-area-inset-bottom))}
+
+.masthead{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px}
+.masthead h1{font-family:'Lexend',sans-serif;font-weight:500;font-size:22px;letter-spacing:-.015em;margin:0;line-height:1.2}
+.masthead p{margin:5px 0 0;color:var(--soft);font-size:14px;max-width:34ch}
+
+.theme-btn{display:flex;align-items:center;gap:7px;border:1px solid var(--line);
+  border-radius:100px;padding:7px 13px;font-size:13px;font-weight:500;color:var(--soft);
+  background:var(--sheet);white-space:nowrap;flex-shrink:0}
+.theme-btn:hover{color:var(--ink);border-color:var(--ink)}
+.theme-btn svg{width:15px;height:15px}
+
+/* ---------- preview ---------- */
+.preview{position:relative;background:var(--sheet);border:1px solid var(--line);border-radius:14px;
+  height:150px;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:8px}
+#previewWord{font-family:'Lexend',sans-serif;font-weight:400;font-size:clamp(28px,7vw,44px);
+  letter-spacing:.005em;transition:opacity .09s linear}
+.preview-tag{position:absolute;left:14px;top:12px;font-size:12px;color:var(--soft);letter-spacing:.01em}
+.pulse{position:absolute;right:14px;top:14px;width:9px;height:9px;border-radius:50%;
+  background:var(--accent);opacity:.18;transition:opacity .07s ease,transform .07s ease}
+.pulse.on{opacity:1;transform:scale(1.5)}
+.preview-note{margin:0 0 26px;font-size:13px;color:var(--soft)}
+
+/* ---------- settings ---------- */
+.sheet{background:var(--sheet);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)}
+.row{padding:16px 18px;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:none}
+.row.sub{background:transparent;padding-top:0}
+.row-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:11px}
+.row-head h2{margin:0;font-size:14px;font-weight:600;letter-spacing:-.005em}
+.row-head span{font-size:13px;color:var(--soft);text-align:right}
+
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px;
+  background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:4px}
+.seg button{padding:9px 6px;border-radius:7px;font-size:14px;font-weight:500;color:var(--soft);
+  transition:background .15s ease,color .15s ease;text-align:center;line-height:1.25}
+.seg button small{display:block;font-size:11px;font-weight:400;opacity:.75;margin-top:2px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
+:root[data-theme="dark"] .seg button[aria-pressed="true"]{color:#111110}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .seg button[aria-pressed="true"]{color:#111110}}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.chips button{border:1px solid var(--line);border-radius:100px;padding:6px 13px;font-size:13px;
+  font-weight:500;color:var(--soft);font-variant-numeric:tabular-nums}
+.chips button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:24px;background:transparent;margin:0}
+input[type=range]::-webkit-slider-runnable-track{height:3px;background:var(--line);border-radius:2px}
+input[type=range]::-moz-range-track{height:3px;background:var(--line);border-radius:2px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;
+  background:var(--accent);margin-top:-10px;border:3px solid var(--sheet);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--accent);
+  border:3px solid var(--sheet);cursor:pointer}
+.scale{display:flex;justify-content:space-between;font-size:12px;color:var(--soft);
+  font-variant-numeric:tabular-nums;margin-top:2px}
+
+.toggle{display:flex;align-items:center;justify-content:space-between;gap:14px;width:100%;text-align:left}
+.toggle .label{font-size:14px;font-weight:600}
+.toggle .desc{font-size:13px;color:var(--soft);margin-top:2px;max-width:40ch}
+.switch{flex-shrink:0;width:46px;height:27px;border-radius:100px;background:var(--line);
+  position:relative;transition:background .18s ease}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:21px;height:21px;border-radius:50%;
+  background:var(--sheet);transition:transform .18s ease}
+[aria-pressed="true"] > .switch{background:var(--accent)}
+[aria-pressed="true"] > .switch::after{transform:translateX(19px)}
+
+.start{width:100%;margin-top:22px;padding:17px;border-radius:12px;background:var(--ink);color:var(--paper);
+  font-size:16px;font-weight:600;letter-spacing:.005em;transition:opacity .15s ease}
+.start:hover{opacity:.88}
+.hint{margin:14px 0 0;font-size:12.5px;color:var(--soft);text-align:center}
+
+/* ---------- stage ---------- */
+.stage{position:fixed;inset:0;background:var(--paper);display:none;z-index:40;
+  touch-action:manipulation;user-select:none}
+.stage.live{display:block}
+#stageWord{position:absolute;font-family:'Lexend',sans-serif;font-weight:400;color:var(--ink);
+  white-space:nowrap;will-change:left,top,opacity;line-height:1.1}
+#stageWord.center{font-size:clamp(40px,13vw,132px)}
+#stageWord.roam{font-size:clamp(28px,7.5vw,72px)}
+
+.stage-top{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:12px;
+  padding:max(14px,env(safe-area-inset-top)) 16px 14px;z-index:2}
+.exit{border:1px solid var(--line);border-radius:100px;padding:7px 14px;font-size:13px;
+  font-weight:500;color:var(--soft);background:var(--paper)}
+.bar{flex:1;height:2px;background:var(--line);border-radius:2px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .12s linear}
+.count{font-size:13px;color:var(--soft);font-variant-numeric:tabular-nums;min-width:66px;text-align:right}
+
+.veil{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+  flex-direction:column;gap:10px;background:var(--paper);z-index:3;text-align:center;padding:24px}
+.veil.show{display:flex}
+.veil .big{font-family:'Lexend',sans-serif;font-size:clamp(34px,9vw,60px);font-weight:400}
+.veil .small{font-size:14px;color:var(--soft)}
+.veil .row-btns{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;justify-content:center}
+.veil .row-btns button{border:1px solid var(--line);border-radius:100px;padding:11px 22px;
+  font-size:14px;font-weight:600}
+.veil .row-btns .fill{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+
+.stats{display:flex;gap:26px;margin-top:22px;justify-content:center;flex-wrap:wrap}
+.stats div{min-width:76px}
+.stats b{display:block;font-family:'Lexend',sans-serif;font-weight:400;font-size:28px;
+  font-variant-numeric:tabular-nums;line-height:1.2}
+.stats span{font-size:12px;color:var(--soft)}
+
+.toast{position:absolute;bottom:max(22px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
+  background:var(--sheet);border:1px solid var(--line);border-radius:100px;padding:7px 16px;font-size:13px;
+  color:var(--soft);opacity:0;transition:opacity .25s ease;pointer-events:none;z-index:4;white-space:nowrap}
+.toast.show{opacity:1}
+
+@media (max-width:420px){
+  .wrap{padding:20px 14px 44px}
+  .row{padding:14px 15px}
+  .seg button{font-size:13px;padding:9px 4px}
+}
+@media (prefers-reduced-motion:reduce){*{transition-duration:.01ms !important}}
+</style>
+</head>
+<body>
+
+<main class="wrap" id="setup">
+  <header class="masthead">
+    <div>
+      <h1 data-t="title">Word Metronome</h1>
+      <p data-t="tagline">One word at a time, on a steady beat. Set the pace, then read out loud.</p>
+    </div>
+    <button class="theme-btn" id="themeBtn" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      <span id="themeLabel">Night</span>
+    </button>
+  </header>
+
+  <div class="preview">
+    <span class="preview-tag" data-t="preview">Preview</span>
+    <span class="pulse" id="pulse" aria-hidden="true"></span>
+    <span id="previewWord">ready</span>
+  </div>
+  <p class="preview-note" data-t="previewNote">The preview runs at your current settings, without sound.</p>
+
+  <div class="sheet">
+
+    <div class="row">
+      <div class="row-head"><h2 data-t="reader">Reader</h2><span id="poolInfo">—</span></div>
+      <div class="seg" id="modeSeg" role="group">
+        <button data-v="kids" data-t="kids" data-ts="kidsSub" aria-pressed="true">Kids<small>short, simple words</small></button>
+        <button data-v="adult" data-t="adult" data-ts="adultSub" aria-pressed="false">Adult<small>longer words</small></button>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="row-head"><h2 data-t="language">Language</h2></div>
+      <div class="seg" id="langSeg" role="group">
+        <button data-v="en" aria-pressed="true">English</button>
+        <button data-v="tr" aria-pressed="false">Türkçe</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="row-head"><h2 data-t="pace">Pace</h2><span id="paceInfo"></span></div>
+      <div class="chips" id="paceChips" role="group">
+        <button data-v="2" data-label="2.0"></button><button data-v="1.5" data-label="1.5"></button>
+        <button data-v="1.2" data-label="1.2"></button><button data-v="1" data-label="1.0"></button>
+        <button data-v="0.8" data-label="0.8"></button><button data-v="0.6" data-label="0.6"></button>
+        <button data-v="0.45" data-label="0.45"></button><button data-v="0.3" data-label="0.3"></button>
+      </div>
+      <input type="range" id="paceRange" min="0.2" max="3" step="0.05" value="1">
+      <div class="scale"><span data-t="scaleFast"></span><span data-t="scaleSlow"></span></div>
+    </div>
+
+    <div class="row">
+      <div class="row-head"><h2 data-t="position">Where the word appears</h2></div>
+      <div class="seg" id="posSeg" role="group">
+        <button data-v="center" data-t="center" data-ts="centerSub" aria-pressed="true">Centre<small>fixed point</small></button>
+        <button data-v="random" data-t="roam" data-ts="roamSub" aria-pressed="false">Roaming<small>eyes follow it</small></button>
+      </div>
+    </div>
+
+    <div class="row sub" id="spreadRow" hidden>
+      <div class="row-head" style="margin-top:14px"><h2 data-t="range">Roaming range</h2></div>
+      <div class="seg" id="spreadSeg" role="group">
+        <button data-v="0.45" data-t="narrow" aria-pressed="false">Narrow</button>
+        <button data-v="0.75" data-t="wide" aria-pressed="true">Wide</button>
+        <button data-v="1" data-t="full" aria-pressed="false">Full screen</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="row-head"><h2 data-t="session">Session</h2></div>
+      <div class="seg" id="lenSeg" role="group">
+        <button data-v="20" aria-pressed="false">20</button>
+        <button data-v="50" aria-pressed="true">50</button>
+        <button data-v="100" aria-pressed="false">100</button>
+        <button data-v="0" data-t="open" aria-pressed="false">Open</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <button class="toggle" id="soundBtn" aria-pressed="true">
+        <span><span class="label" data-t="soundLabel">Metronome click</span><span class="desc" data-t="soundDesc">A tick on every word, so the beat is heard as well as seen.</span></span>
+        <span class="switch"></span>
+      </button>
+    </div>
+
+    <div class="row">
+      <button class="toggle" id="rampBtn" aria-pressed="false">
+        <span><span class="label" data-t="rampLabel">Speed up gradually</span><span class="desc" data-t="rampDesc">Shortens the gap by 5% every ten words, down to 0.20 s.</span></span>
+        <span class="switch"></span>
+      </button>
+    </div>
+
+  </div>
+
+  <button class="start" id="startBtn" data-t="start">Start reading</button>
+  <p class="hint" data-t="hint">Space pauses · Esc ends · ↑ ↓ change pace while reading</p>
+</main>
+
+<section class="stage" id="stage" aria-live="off">
+  <div class="stage-top">
+    <button class="exit" id="exitBtn" data-t="end">End</button>
+    <div class="bar"><i id="barFill"></i></div>
+    <span class="count" id="count">0</span>
+  </div>
+
+  <div id="stageWord" class="center"></div>
+
+  <div class="veil" id="veil">
+    <div class="big" id="veilBig"></div>
+    <div class="small" id="veilSmall"></div>
+    <div class="stats" id="veilStats" hidden>
+      <div><b id="sWords">0</b><span data-t="statWords">words</span></div>
+      <div><b id="sTime">0:00</b><span data-t="statTime">time</span></div>
+      <div><b id="sWpm">0</b><span data-t="wpm">words/min</span></div>
+    </div>
+    <div class="row-btns" id="veilBtns"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</section>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------------- word pools ---------------- */
+const WORDS = {
+  en:{
+    kids:("cat dog sun hat run big red cup box pen bed bus cow egg fox hen jam key leg map net owl pig pot rat sit top van web zip "+
+      "fish milk book tree star bird cake ball door hand moon rain ship frog duck jump sing blue nest gift lamp ring sock wind corn "+
+      "farm gate hill king leaf nose park road sand seed toys wolf yard bell boat camp dark drum feet fire flag food girl gold hair "+
+      "help home kite lake luck nice open play rock rope safe snow soft swim tall warm wave wish apple house water happy chair table "+
+      "bread cloud horse mouse sheep sleep smile sweet train grass light night paper plant river stone sugar teeth beach candy dream "+
+      "drink green honey juice lemon money music ocean pizza queen robot seven shoes spoon story sunny tiger tooth watch white world young").split(" "),
+    adult:("absolute abundant academic accurate advantage ambition analysis ancestor apparent argument atmosphere attention authority "+
+      "balance barrier benefit boundary brilliant calendar capacity category ceremony challenge character collective comfort community "+
+      "concept confidence conscious consequence constant continue contrast creature critical curious decision dedicate definite delicate "+
+      "deliberate density describe dialogue discover distance dominant dramatic efficient elaborate element emphasis encounter endurance "+
+      "engineer enormous envelope equation essential estimate evidence evolution exchange exercise expansion external familiar feature "+
+      "festival foundation fragment framework frequency function generate generous gesture gradual gratitude guidance harmony heritage "+
+      "horizon hypothesis identity imagine immediate important improve incident indicate industry influence initial instance integrate "+
+      "intention interior interval journey judgement keyboard knowledge landscape language laughter literature magnitude maintain majority "+
+      "material measure mechanism memory message method mineral moderate moment monitor mountain narrative natural navigate necessary "+
+      "negotiate neutral objective observe obstacle occasion opinion opposite ordinary original outcome parallel particle passenger "+
+      "patience pattern perceive perform permanent perspective persuade physical pioneer planning pleasure portion position possible "+
+      "potential practice precise predict prepare presence pressure primary priority probable process produce progress project promise "+
+      "property proposal protect provide purpose quality quantity question reaction reasonable receive recognise recommend recover "+
+      "reflect regular relative release remember remarkable remote require research resource respect response restore resilience routine "+
+      "satisfy schedule scientist sequence serious service settlement shelter signal significant similar situation solution specific "+
+      "standard strategy strength structure subject substance succeed sufficient suggest superior surface surround survive sustain symbol "+
+      "technique temporary tendency terrain threshold tolerance tradition transfer transform transition treasure treatment triangle "+
+      "typical ultimate universal unusual valuable variable velocity version victory village visible vitality volume voyage weather "+
+      "welcome wilderness wisdom witness wonder workshop yesterday").split(" ")
+  },
+  tr:{
+    kids:("ana ada ata ayı arı bal bak ben bez bir boy buz cam can çay çam çit dal dil diş dut ebe elma ev göz gül gün hal hız ilk kap "+
+      "kar kaş kaz kim kol kuş mum nar okul oku ova pil pul saç sap ses sis süt taş top toz tuz un var yağ yaz yel yer yol yüz zil "+
+      "araba anne baba kedi köpek kitap kapı masa armut çilek karpuz üzüm muz portakal çiçek bulut güneş deniz balık kalem defter oyun "+
+      "bebek çorap ayakkabı ekmek peynir şeker tavşan kuzu inek koyun horoz civciv kelebek karınca ağaç yaprak orman dağ pencere perde "+
+      "yatak yastık oyuncak kardeş arkadaş öğretmen bahçe salıncak kaydırak bisiklet uçak tren vapur otobüs kamyon itfaiye doktor hemşire "+
+      "aşçı çoban çiftçi serçe baykuş kartal martı ördek kaplumbağa sincap tilki aslan fil zürafa maymun yılan böcek dondurma kurabiye "+
+      "çikolata yumurta zeytin domates salatalık havuç patates soğan limon kiraz erik incir ceviz fındık bardak tabak kaşık çatal "+
+      "sandalye halı ayna saat anahtar çanta şapka eldiven atkı palto gömlek etek pantolon").split(" "),
+    adult:("anlayış araştırma bağımsız başarı beceri bekleyiş belirti benzerlik bereket bilgelik bilinç birikim bütünlük cesaret coğrafya "+
+      "çaba çeşitlilik çevre çözümleme dayanıklılık değişim deneyim denge derinlik destek doğruluk dönüşüm duyarlılık düşünce eğilim "+
+      "eğitim ekonomi emek endişe engel esneklik etkileşim evrensel farkındalık gelenek gelişim genişlik gerçeklik gereksinim girişim "+
+      "görüş güven hayal hazırlık hedef huzur ısrar ışık içerik iletişim ilerleme ilke inanç incelik istikrar işbirliği kalıcı kapsam "+
+      "karar kararlılık karşılaştırma katılım kavram kaynak kesinlik kolaylık konum koruma kültür merak mimari motivasyon nitelik olanak "+
+      "olasılık olgunluk onarım öncelik öneri özgünlük özveri planlama rekabet sabır sağduyu saygı serbestlik sıralama sorumluluk süreç "+
+      "tanım tarım tasarım tecrübe teknoloji temel titizlik toplum tutarlılık uygulama uyum üretim üstünlük vurgu yaklaşım yaratıcılık "+
+      "yardım yenilik yeterlilik yöntem yönetim zamanlama zenginlik çalışkanlık düzen güvenlik hızlanma kalite mantık ölçüm sonuç veri "+
+      "yapı yorum dikkat alışkanlık davranış gözlem hoşgörü kaygı sezgi uzmanlık verimlilik yaşantı yoğunluk").split(" ")
+  }
+};
+
+/* ---------------- state ---------------- */
+const cfg = {mode:"kids", lang:"en", pace:1, position:"center", spread:0.75, length:50, sound:true, ramp:false, theme:"light"};
+
+try{
+  const saved = JSON.parse(localStorage.getItem("wm.cfg") || "null");
+  if(saved && typeof saved === "object") Object.assign(cfg, saved);
+}catch(e){}
+function save(){ try{ localStorage.setItem("wm.cfg", JSON.stringify(cfg)); }catch(e){} }
+
+const $ = id => document.getElementById(id);
+const stage=$("stage"), stageWord=$("stageWord"), veil=$("veil"), toastEl=$("toast");
+
+/* ---------------- interface language ---------------- */
+const T = {
+  en:{
+    title:"Word Metronome",
+    tagline:"One word at a time, on a steady beat. Set the pace, then read out loud.",
+    night:"Night", day:"Day",
+    preview:"Preview",
+    previewNote:"The preview runs at your current settings, without sound.",
+    reader:"Reader", kids:"Kids", kidsSub:"short, simple words", adult:"Adult", adultSub:"longer words",
+    pool:"{n} words in this list",
+    language:"Language",
+    pace:"Pace", sec:"s", wpm:"words/min",
+    scaleFast:"0.20 s · fast", scaleSlow:"3.00 s · slow",
+    position:"Where the word appears",
+    center:"Centre", centerSub:"fixed point", roam:"Roaming", roamSub:"eyes follow it",
+    range:"Roaming range", narrow:"Narrow", wide:"Wide", full:"Full screen",
+    session:"Session", open:"Open",
+    soundLabel:"Metronome click",
+    soundDesc:"A tick on every word, so the beat is heard as well as seen.",
+    rampLabel:"Speed up gradually",
+    rampDesc:"Shortens the gap by 5% every ten words, down to 0.20 s.",
+    start:"Start reading",
+    hint:"Space pauses · Esc ends · ↑ ↓ change pace while reading",
+    end:"End", ready:"Get ready", paused:"Paused",
+    ofWords:"{a} of {b} words", soFar:"{a} words so far",
+    resume:"Resume", endSession:"End session",
+    done:"Well read", again:"Go again", settings:"Settings",
+    statWords:"words", statTime:"time"
+  },
+  tr:{
+    title:"Kelime Metronomu",
+    tagline:"Tek tek kelimeler, düzenli bir tempoda. Hızı ayarla, sesli oku.",
+    night:"Gece", day:"Gündüz",
+    preview:"Önizleme",
+    previewNote:"Önizleme, seçtiğin ayarlarla sessiz çalışır.",
+    reader:"Okuyucu", kids:"Çocuk", kidsSub:"kısa, kolay kelimeler", adult:"Yetişkin", adultSub:"uzun kelimeler",
+    pool:"Bu listede {n} kelime var",
+    language:"Dil",
+    pace:"Tempo", sec:"sn", wpm:"kelime/dk",
+    scaleFast:"0,20 sn · hızlı", scaleSlow:"3,00 sn · yavaş",
+    position:"Kelime nerede çıksın",
+    center:"Ortada", centerSub:"sabit nokta", roam:"Gezinsin", roamSub:"gözler takip eder",
+    range:"Gezinme alanı", narrow:"Dar", wide:"Geniş", full:"Tam ekran",
+    session:"Seans", open:"Sınırsız",
+    soundLabel:"Metronom sesi",
+    soundDesc:"Her kelimede bir tık; tempo hem görülür hem duyulur.",
+    rampLabel:"Kademeli hızlanma",
+    rampDesc:"Her on kelimede aralığı %5 kısaltır, 0,20 saniyeye kadar.",
+    start:"Okumaya başla",
+    hint:"Boşluk duraklatır · Esc bitirir · ↑ ↓ tempoyu değiştirir",
+    end:"Bitir", ready:"Hazır ol", paused:"Duraklatıldı",
+    ofWords:"{b} kelimenin {a} tanesi", soFar:"şu ana kadar {a} kelime",
+    resume:"Devam et", endSession:"Seansı bitir",
+    done:"Güzel okudun", again:"Yeniden", settings:"Ayarlar",
+    statWords:"kelime", statTime:"süre"
+  }
+};
+function t(k, vars){
+  let s = (T[cfg.lang] && T[cfg.lang][k]) || T.en[k] || k;
+  if(vars) for(const key in vars) s = s.split("{"+key+"}").join(vars[key]);
+  return s;
+}
+function dec(str){ return cfg.lang === "tr" ? String(str).replace(".", ",") : String(str); }
+
+function applyLang(){
+  document.documentElement.lang = cfg.lang;
+  document.title = t("title") + (cfg.lang === "tr" ? " — okuma temposu" : " — reading pace trainer");
+  document.querySelectorAll("[data-t]").forEach(el=>{
+    const main = t(el.dataset.t);
+    if(el.dataset.ts){
+      el.textContent = main;
+      const s = document.createElement("small");
+      s.textContent = t(el.dataset.ts);
+      el.appendChild(s);
+    } else {
+      el.textContent = main;
+    }
+  });
+  $("paceChips").querySelectorAll("button").forEach(b=>{
+    b.textContent = dec(b.dataset.label) + " " + t("sec");
+  });
+  $("modeSeg").setAttribute("aria-label", t("reader"));
+  $("langSeg").setAttribute("aria-label", t("language"));
+  $("posSeg").setAttribute("aria-label", t("position"));
+  $("spreadSeg").setAttribute("aria-label", t("range"));
+  $("lenSeg").setAttribute("aria-label", t("session"));
+  $("paceRange").setAttribute("aria-label", t("pace"));
+  applyTheme();
+  info();
+  paceInfo();
+}
+
+/* ---------------- theme ---------------- */
+function applyTheme(){
+  document.documentElement.setAttribute("data-theme", cfg.theme);
+  $("themeLabel").textContent = cfg.theme === "dark" ? t("day") : t("night");
+  $("themeBtn").setAttribute("aria-pressed", cfg.theme === "dark");
+  const m = document.querySelector('meta[name=theme-color]');
+  if(m) m.setAttribute("content", cfg.theme === "dark" ? "#111110" : "#F2EEE1");
+}
+$("themeBtn").addEventListener("click", ()=>{ cfg.theme = cfg.theme === "dark" ? "light" : "dark"; applyTheme(); save(); });
+
+/* ---------------- audio ---------------- */
+let ac = null;
+function tick(strong){
+  if(!cfg.sound) return;
+  try{
+    if(!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+    if(ac.state === "suspended") ac.resume();
+    const t = ac.currentTime;
+    const o = ac.createOscillator(), g = ac.createGain(), f = ac.createBiquadFilter();
+    o.type = "square";
+    o.frequency.setValueAtTime(strong ? 1750 : 1250, t);
+    f.type = "bandpass"; f.frequency.setValueAtTime(strong ? 1750 : 1250, t); f.Q.value = 1.4;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(strong ? 0.30 : 0.20, t + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.045);
+    o.connect(f); f.connect(g); g.connect(ac.destination);
+    o.start(t); o.stop(t + 0.06);
+  }catch(e){}
+}
+
+/* ---------------- word feed ---------------- */
+let bag = [];
+function pool(){ return WORDS[cfg.lang][cfg.mode]; }
+function refill(){ bag = pool().slice(); for(let i=bag.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [bag[i],bag[j]]=[bag[j],bag[i]]; } }
+function nextWord(){ if(!bag.length) refill(); return bag.pop(); }
+
+/* ---------------- segmented controls ---------------- */
+function segment(id, key, after){
+  const el = $(id);
+  el.querySelectorAll("button").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      el.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed", x===b));
+      const v = b.dataset.v;
+      cfg[key] = isNaN(parseFloat(v)) ? v : parseFloat(v);
+      save(); if(after) after();
+    });
+  });
+}
+function paint(id, key){
+  $(id).querySelectorAll("button").forEach(b=>{
+    const v = isNaN(parseFloat(b.dataset.v)) ? b.dataset.v : parseFloat(b.dataset.v);
+    b.setAttribute("aria-pressed", v === cfg[key]);
+  });
+}
+
+segment("modeSeg","mode",()=>{ refill(); info(); resetPreview(); });
+segment("langSeg","lang",()=>{ refill(); applyLang(); resetPreview(); });
+segment("posSeg","position",()=>{ $("spreadRow").hidden = cfg.position !== "random"; });
+segment("spreadSeg","spread");
+segment("lenSeg","length");
+
+function info(){
+  $("poolInfo").textContent = t("pool", {n: pool().length});
+}
+function paceInfo(){
+  const wpm = Math.round(60 / cfg.pace);
+  $("paceInfo").textContent = dec(cfg.pace.toFixed(2)) + " " + t("sec") + " · " + wpm + " " + t("wpm");
+  $("paceRange").value = cfg.pace;
+  paint("paceChips","pace");
+}
+$("paceChips").querySelectorAll("button").forEach(b=>{
+  b.addEventListener("click", ()=>{ cfg.pace = parseFloat(b.dataset.v); paceInfo(); save(); resetPreview(); });
+});
+$("paceRange").addEventListener("input", e=>{ cfg.pace = parseFloat(e.target.value); paceInfo(); save(); resetPreview(); });
+
+function toggle(id,key,after){
+  const b = $(id);
+  b.setAttribute("aria-pressed", !!cfg[key]);
+  b.addEventListener("click", ()=>{ cfg[key] = !cfg[key]; b.setAttribute("aria-pressed", cfg[key]); save(); if(after) after(); });
+}
+toggle("soundBtn","sound", ()=>{ if(cfg.sound) tick(false); });
+toggle("rampBtn","ramp");
+
+/* ---------------- preview ---------------- */
+let pvTimer = null;
+function resetPreview(){
+  clearInterval(pvTimer);
+  const w = $("previewWord"), p = $("pulse");
+  const step = ()=>{
+    w.style.opacity = 0;
+    setTimeout(()=>{ w.textContent = nextWord(); w.style.opacity = 1; }, 60);
+    p.classList.add("on"); setTimeout(()=>p.classList.remove("on"), 90);
+  };
+  step();
+  pvTimer = setInterval(step, Math.max(240, cfg.pace * 1000));
+}
+
+/* ---------------- session ---------------- */
+let run = null;
+
+function place(){
+  if(cfg.position === "center"){
+    stageWord.style.left = "50%"; stageWord.style.top = "50%";
+    stageWord.style.transform = "translate(-50%,-50%)";
+    return;
+  }
+  stageWord.style.transform = "none";
+  const pad = 10, topBar = 64;
+  const W = stage.clientWidth, H = stage.clientHeight;
+  const w = stageWord.offsetWidth, h = stageWord.offsetHeight;
+  const minX = pad, maxX = Math.max(pad, W - w - pad);
+  const minY = topBar, maxY = Math.max(topBar, H - h - pad);
+  const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+  let x = cx + (Math.random() - 0.5) * (maxX - minX) * cfg.spread;
+  let y = cy + (Math.random() - 0.5) * (maxY - minY) * cfg.spread;
+  stageWord.style.left = Math.min(maxX, Math.max(minX, x)) + "px";
+  stageWord.style.top  = Math.min(maxY, Math.max(minY, y)) + "px";
+}
+
+function show(word){
+  stageWord.textContent = word;
+  place();
+}
+
+function schedule(){
+  clearTimeout(run.timer);
+  run.timer = setTimeout(beat, run.gap * 1000);
+}
+
+function beat(){
+  if(!run || run.paused) return;
+  if(cfg.length && run.shown >= cfg.length){ finish(); return; }
+  run.shown++;
+  show(nextWord());
+  tick(run.shown % 4 === 1);
+  $("count").textContent = cfg.length ? run.shown + " / " + cfg.length : String(run.shown);
+  $("barFill").style.width = cfg.length ? (run.shown / cfg.length * 100) + "%" : "0%";
+  if(cfg.ramp && run.shown % 10 === 0) run.gap = Math.max(0.2, run.gap * 0.95);
+  schedule();
+}
+
+function veilShow(big, small, buttons, stats){
+  $("veilBig").textContent = big;
+  $("veilSmall").textContent = small || "";
+  $("veilStats").hidden = !stats;
+  const box = $("veilBtns"); box.innerHTML = "";
+  (buttons || []).forEach(b=>{
+    const el = document.createElement("button");
+    el.textContent = b.text; if(b.fill) el.className = "fill";
+    el.addEventListener("click", b.fn);
+    box.appendChild(el);
+  });
+  veil.classList.add("show");
+}
+function veilHide(){ veil.classList.remove("show"); }
+
+function toast(msg){
+  toastEl.textContent = msg; toastEl.classList.add("show");
+  clearTimeout(toastEl._t); toastEl._t = setTimeout(()=>toastEl.classList.remove("show"), 1100);
+}
+
+function start(){
+  clearInterval(pvTimer);
+  refill();
+  stageWord.className = cfg.position === "center" ? "center" : "roam";
+  stageWord.textContent = "";
+  stage.classList.add("live");
+  $("count").textContent = cfg.length ? "0 / " + cfg.length : "0";
+  $("barFill").style.width = "0%";
+  run = {shown:0, gap:cfg.pace, paused:false, t0:0, timer:null};
+
+  let n = 3;
+  veilShow(String(n), t("ready"));
+  tick(true);
+  const cd = setInterval(()=>{
+    n--;
+    if(n > 0){ $("veilBig").textContent = String(n); tick(false); }
+    else{
+      clearInterval(cd); veilHide();
+      run.t0 = performance.now();
+      beat();
+    }
+  }, 700);
+}
+
+function pause(){
+  if(!run || run.paused) return;
+  run.paused = true; clearTimeout(run.timer);
+  veilShow(t("paused"),
+    cfg.length ? t("ofWords", {a: run.shown, b: cfg.length}) : t("soFar", {a: run.shown}), [
+    {text:t("resume"), fill:true, fn:resume},
+    {text:t("endSession"), fn:finish}
+  ]);
+}
+function resume(){
+  if(!run) return;
+  veilHide(); run.paused = false; schedule();
+}
+
+function fmt(ms){
+  const s = Math.round(ms/1000);
+  return Math.floor(s/60) + ":" + String(s%60).padStart(2,"0");
+}
+
+function finish(){
+  if(!run) return;
+  clearTimeout(run.timer); run.paused = true;
+  const ms = Math.max(1, performance.now() - run.t0);
+  const wpm = Math.round(run.shown / (ms/60000));
+  $("sWords").textContent = run.shown;
+  $("sTime").textContent = fmt(ms);
+  $("sWpm").textContent = isFinite(wpm) ? wpm : 0;
+  stageWord.textContent = "";
+  veilShow(t("done"), "", [
+    {text:t("again"), fill:true, fn:start},
+    {text:t("settings"), fn:quit}
+  ], true);
+}
+
+function quit(){
+  if(run){ clearTimeout(run.timer); run = null; }
+  veilHide();
+  stage.classList.remove("live");
+  resetPreview();
+}
+
+$("startBtn").addEventListener("click", ()=>{ tick(false); start(); });
+$("exitBtn").addEventListener("click", ()=>{ run && run.shown ? finish() : quit(); });
+
+stage.addEventListener("click", e=>{
+  if(e.target.closest(".stage-top") || e.target.closest(".veil")) return;
+  if(!run) return;
+  run.paused ? resume() : pause();
+});
+
+document.addEventListener("keydown", e=>{
+  if(!stage.classList.contains("live")) return;
+  if(e.code === "Space"){ e.preventDefault(); run && (run.paused ? resume() : pause()); }
+  else if(e.code === "Escape"){ e.preventDefault(); run && run.shown ? finish() : quit(); }
+  else if(e.code === "ArrowUp" || e.code === "ArrowDown"){
+    e.preventDefault();
+    if(!run) return;
+    run.gap = Math.min(3, Math.max(0.2, run.gap + (e.code === "ArrowUp" ? -0.05 : 0.05)));
+    toast(dec(run.gap.toFixed(2)) + " " + t("sec") + " · " + Math.round(60/run.gap) + " " + t("wpm"));
+  }
+});
+
+window.addEventListener("resize", ()=>{ if(run && !run.paused) place(); });
+
+/* ---------------- boot ---------------- */
+paint("modeSeg","mode"); paint("langSeg","lang"); paint("posSeg","position");
+paint("spreadSeg","spread"); paint("lenSeg","length");
+$("spreadRow").hidden = cfg.position !== "random";
+$("soundBtn").setAttribute("aria-pressed", !!cfg.sound);
+$("rampBtn").setAttribute("aria-pressed", !!cfg.ramp);
+applyLang(); refill(); resetPreview();
+})();
+</script>
+</body>
+</html>
